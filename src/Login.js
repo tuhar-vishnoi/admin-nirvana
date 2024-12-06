@@ -21,7 +21,7 @@ const Login = () => {
     const { email, password } = formData;
 
     // Simple email and password validation (replace with API call)
-    if (email === "admin@example.com" && password === "password123") {
+    if (email === "nirvanalight37@gmail.com" && password === "nirvana@123") {
       navigate("/dashboard"); // Navigate to the dashboard
     } else {
       setError("Invalid email or password");
