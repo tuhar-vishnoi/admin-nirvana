@@ -1,24 +1,24 @@
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+
+import Blog from "./Blog"; // Your Blog screen
+import Login from "./Login";
+import Banner from "./Banner";
+import AddBlog from "./AddBlog";
+import Dashboard from "./Dashboard";
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/banner" element={<Banner />} />
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/addblog" element={<AddBlog />} />
+        <Route path="/addblog/:id" element={<AddBlog />} />{" "}
+        {/* This will match /addblog/:id */}
+      </Routes>
+    </Router>
   );
 }
 
