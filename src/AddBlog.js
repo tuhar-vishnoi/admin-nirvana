@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, TextField, Button } from "@mui/material";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import useSupabase from "./useSupabase"; // Custom hook to initialize Supabase
+import useSupabase from "./useSupabase";
 
 const AddBlog = () => {
   const supabase = useSupabase();
   const [title, setTitle] = useState("");
+  const [imageUrl, setImageUrl] = useState(""); // Store the public URL of the image
+  const [imagePath, setImagePath] = useState(""); // Store the image path for deletion
   const [h1Heading, setH1Heading] = useState("");
   const [h1Description, setH1Description] = useState("");
   const [h2Heading, setH2Heading] = useState("");
@@ -20,9 +22,9 @@ const AddBlog = () => {
   const [h6Description, setH6Description] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { id } = useParams(); // Get blog ID from URL for edit operation
+  const { id } = useParams();
 
-  // Fetch the blog data for update if an id is present
+  // Fetch blog data for editing
   useEffect(() => {
     if (id) {
       const fetchBlog = async () => {
@@ -32,11 +34,9 @@ const AddBlog = () => {
           .eq("id", id)
           .single();
 
-        console.log("Fetched blog data:", data); // Debugging
-
         if (data) {
-          setTitle(data.title || ""); // Default to an empty string
-          setH1Heading(data.h1_heading || ""); // Map correctly to your database fields
+          setTitle(data.title || "");
+          setH1Heading(data.h1_heading || "");
           setH1Description(data.h1_description || "");
           setH2Heading(data.h2_heading || "");
           setH2Description(data.h2_description || "");
@@ -48,6 +48,22 @@ const AddBlog = () => {
           setH5Description(data.h5_description || "");
           setH6Heading(data.h6_heading || "");
           setH6Description(data.h6_description || "");
+
+          // Set image path and fetch public URL
+          const imagePath = data.imagepath || "";
+          setImagePath(imagePath);
+
+          if (imagePath) {
+            const { data: publicUrlData, error: urlError } = supabase.storage
+              .from("banner")
+              .getPublicUrl(imagePath);
+
+            if (urlError) {
+              console.error("Error getting image URL:", urlError.message);
+            } else {
+              setImageUrl(publicUrlData.publicUrl);
+            }
+          }
         }
 
         if (error) {
@@ -58,13 +74,69 @@ const AddBlog = () => {
     }
   }, [id, supabase]);
 
-  // Handle the form submission to add or update the blog
+  // Handle image upload
+  const handleImageUpload = async (file) => {
+    const fileName = `blog-${Date.now()}-${file.name}`;
+    setLoading(true);
+
+    // Upload to Supabase Storage
+    const { data: storageData, error: storageError } = await supabase.storage
+      .from("banner")
+      .upload(fileName, file, { upsert: true });
+
+    if (storageError) {
+      console.error("Error uploading image:", storageError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Get public URL
+    const { data: publicUrlData, error: urlError } = supabase.storage
+      .from("banner")
+      .getPublicUrl(storageData.path);
+
+    if (urlError) {
+      console.error("Error getting image URL:", urlError.message);
+      setLoading(false);
+      return;
+    }
+
+    setImageUrl(publicUrlData.publicUrl);
+    setImagePath(storageData.path); // Store image path for deletion
+    setLoading(false);
+  };
+
+  // Handle image deletion
+  const handleImageDelete = async () => {
+    if (!imagePath) return;
+
+    setLoading(true);
+
+    // Delete from Supabase Storage
+    const { error: storageError } = await supabase.storage
+      .from("banner")
+      .remove([imagePath]);
+
+    if (storageError) {
+      console.error("Error deleting image:", storageError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Clear the image URL and path
+    setImageUrl("");
+    setImagePath("");
+    setLoading(false);
+  };
+
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     const blogData = {
       title,
+      imagepath: imagePath, // Save image path for deletion
       h1_heading: h1Heading,
       h1_description: h1Description,
       h2_heading: h2Heading,
@@ -80,7 +152,7 @@ const AddBlog = () => {
     };
 
     if (id) {
-      // Update existing blog
+      // Update blog
       const { error } = await supabase
         .from("blogs")
         .update(blogData)
@@ -90,7 +162,7 @@ const AddBlog = () => {
         console.error("Error updating blog:", error.message);
       } else {
         console.log("Blog updated successfully");
-        navigate("/blog"); // Redirect back to the blog list page
+        navigate("/blog");
       }
     } else {
       // Insert new blog
@@ -100,7 +172,7 @@ const AddBlog = () => {
         console.error("Error adding blog:", error.message);
       } else {
         console.log("Blog added successfully");
-        navigate("/blog"); // Redirect back to the blog list page
+        navigate("/blog");
       }
     }
 
@@ -125,7 +197,39 @@ const AddBlog = () => {
       </Typography>
 
       <form onSubmit={handleSubmit}>
-        {/* Blog Title Input */}
+        {/* Blog Title */}
+
+        {/* Image Upload */}
+        <Typography variant="h6" gutterBottom>
+          Upload Blog Image
+        </Typography>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => handleImageUpload(e.target.files[0])}
+          disabled={loading}
+        />
+        {imageUrl && (
+          <div style={{ marginTop: "10px" }}>
+            <img
+              src={imageUrl}
+              alt="Uploaded Preview"
+              style={{ width: "200px", marginBottom: "10px" }}
+            />
+            <br />
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleImageDelete}
+              disabled={loading}
+            >
+              Delete Image
+            </Button>
+          </div>
+        )}
+        <br />
+        <br />
+
         <TextField
           label="Blog Title"
           variant="outlined"
@@ -134,8 +238,6 @@ const AddBlog = () => {
           onChange={(e) => setTitle(e.target.value)}
           sx={{ marginBottom: 2 }}
         />
-
-        {/* Heading 1 */}
         <Typography variant="h6" gutterBottom>
           Heading 1
         </Typography>
@@ -279,6 +381,7 @@ const AddBlog = () => {
           variant="contained"
           color="primary"
           disabled={loading}
+          sx={{ marginTop: 2 }}
         >
           {loading ? "Saving..." : id ? "Update Blog" : "Save Blog"}
         </Button>

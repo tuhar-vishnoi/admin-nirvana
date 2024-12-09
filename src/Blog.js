@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Button, Grid, CircularProgress } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Button,
+  Grid,
+  CircularProgress,
+  Card,
+  CardContent,
+  CardMedia,
+} from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 import useSupabase from "./useSupabase"; // Custom hook to initialize Supabase
 
@@ -20,7 +29,23 @@ const Blog = () => {
     if (error) {
       console.error("Error fetching blogs:", error.message);
     } else {
-      setBlogs(data);
+      // Fetch public URL for each blog's image
+      const blogsWithImageUrls = await Promise.all(
+        data.map(async (blog) => {
+          if (blog.imagepath) {
+            const { data: publicUrlData, error: urlError } = supabase.storage
+              .from("banner")
+              .getPublicUrl(blog.imagepath);
+            if (urlError) {
+              console.error("Error fetching image URL:", urlError.message);
+            } else {
+              blog.imageUrl = publicUrlData.publicUrl; // Attach public URL
+            }
+          }
+          return blog;
+        })
+      );
+      setBlogs(blogsWithImageUrls);
     }
     setLoading(false);
   };
@@ -82,35 +107,39 @@ const Blog = () => {
       <Grid container spacing={2}>
         {blogs.map((blog) => (
           <Grid item xs={12} sm={6} md={4} key={blog.id}>
-            <Box
-              sx={{
-                border: "1px solid #ddd",
-                padding: 2,
-                borderRadius: 1,
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="h6">{blog.title}</Typography>
-              <Typography variant="body2" sx={{ marginBottom: 1 }}>
-                {blog.description}
-              </Typography>
-              <Button
-                variant="outlined"
-                sx={{ marginBottom: 2 }} // Added spacing between buttons
-                onClick={() => navigate(`/addblog/${blog.id}`)}
-              >
-                Read More
-              </Button>
+            <Card sx={{ border: "1px solid #ddd", borderRadius: 1 }}>
+              {/* Display image if it exists */}
+              {blog.imageUrl && (
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={blog.imageUrl}
+                  alt={blog.title}
+                />
+              )}
+              <CardContent>
+                <Typography variant="h6">{blog.title}</Typography>
+                <Typography variant="body2" sx={{ marginBottom: 1 }}>
+                  {blog.description || "No description available."}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  sx={{ marginBottom: 2 }} // Added spacing between buttons
+                  onClick={() => navigate(`/addblog/${blog.id}`)}
+                >
+                  Read More
+                </Button>
 
-              {/* Delete Button */}
-              <Button
-                variant="contained"
-                color="error"
-                onClick={() => handleDelete(blog.id)}
-              >
-                Delete
-              </Button>
-            </Box>
+                {/* Delete Button */}
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={() => handleDelete(blog.id)}
+                >
+                  Delete
+                </Button>
+              </CardContent>
+            </Card>
           </Grid>
         ))}
       </Grid>
